@@ -1,4 +1,5 @@
 from email import message
+import json
 from re import I
 from ks_api_client import ks_api
 from flask import current_app
@@ -60,7 +61,7 @@ class KotakStock(Resource):
             return (client)
         except ks_api_client.ApiException as e:
             print(e)
-            abort(400, message= e['fault']['message'])
+            abort(400, message = json.loads(vars(e)['body'])['fault']['message'])
 
 
     def get(self, userId, type, typeValue = None):
@@ -153,7 +154,7 @@ class KotakStock(Resource):
             return None
         except ks_api_client.ApiException as e:
             print(e)
-            abort(400, message = e['fault']['message'])
+            abort(400, message = json.loads(vars(e)['body'])['fault']['message'])
     def post(self, userId, type, typeValue = None):
         try: 
             checkXRequestIdHeader(request= request)
@@ -198,7 +199,7 @@ class KotakStock(Resource):
                         client.logout()
                         return loads(dumps(res)), 200
                     except ks_api_client.ApiException as e:
-                        abort(400, message = e['fault']['message'])
+                        abort(400, message = json.loads(vars(e)['body'])['fault']['message'])
                 if (type == 'cancelOrder'):
                     print("Inside cancelOrder")
                     order_id = typeValue
@@ -209,7 +210,7 @@ class KotakStock(Resource):
                         client.logout()
                         return loads(dumps(res)), 200
                     except ks_api_client.ApiException as e:
-                        abort(400, message = e['fault']['message'])
+                        abort(400, message = json.loads(vars(e)['body'])['fault']['message'])
                 if (type == 'modifyOrder'):
                     order_id = typeValue
                     body = request.get_json()
@@ -223,10 +224,10 @@ class KotakStock(Resource):
                         client.logout()
                         return loads(dumps(res)), 200
                     except ks_api_client.ApiException as e:
-                        abort(400, message = e['fault']['message'])
+                        abort(400, message = json.loads(vars(e)['body'])['fault']['message'])
                 if (type == 'logout'):
                     client.logout()
         except ks_api_client.ApiException as e:
             print(e)
-            abort(400, message= e['fault']['message'])
+            abort(400, message = json.loads(vars(e)['body'])['fault']['message'])
             
