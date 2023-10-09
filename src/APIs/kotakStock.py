@@ -4,7 +4,7 @@ from ks_api_client import ks_api
 from flask import current_app
 from flask_restful import Resource, Api, abort, request, reqparse
 import ks_api_client
-from mongo import mongo_DB_Collection
+from mongo import mongoDB_DynStocks_Collection
 import uuid
 from json import loads
 from bson.json_util import dumps
@@ -31,8 +31,8 @@ class KotakStock(Resource):
             access_code = request.args.get('accessCode', default=None)
             if (access_code == None or access_code == ''):
                 abort(409, message= 'Please provide the access code')
-            user = mongo_DB_Collection.find_one({
-                'userId': uuid.UUID(userId),
+            user = mongoDB_DynStocks_Collection.find_one({
+                'userId': userId,
             })
             if (not user):
                 abort(404, message='User not found')
@@ -46,7 +46,7 @@ class KotakStock(Resource):
             user_id = kotakStockAPICreds['KOTAK_STOCK_API_USER_ID']
             password = kotakStockAPICreds['KOTAK_STOCK_API_PASSWORD']
             client = ks_api.KSTradeApi(access_token = access_token, userid = user_id, consumer_key = consumer_key,
-                                        ip = "127.0.0.1", 
+                                       ip = "127.0.0.1",
                                         app_id = app_id, consumer_secret = consumer_secret, host="https://ctradeapi.kotaksecurities.com/apim")
 
             client.login(password = password)
@@ -149,6 +149,14 @@ class KotakStock(Resource):
                     'CAN': CAN_Orders,
                     'TRAD': TRAD_Orders,
                 }, 200
+            if (type == 'quotes'):
+                quotes = typeValue
+                print(typeValue)
+                try:
+                    quoteDetails = client.quote(instrument_token = quotes)
+                    return loads(dumps(quoteDetails)), 200
+                except e:
+                    abort(400, message = "Error while obtaining quotes")
             client.logout()
             return None
         except ks_api_client.ApiException as e:
@@ -182,6 +190,7 @@ class KotakStock(Resource):
             if (len(jwt_token) != 2 or jwt_token[1] != expected_jwt_token):
                 abort(403, message = 'You are unauthorized to make the request')
             client = self.kotak_login(userId)
+
             content_type = request.headers.get('Content-Type')
             if ('application/json' in content_type):
                 if (type == 'placeOrder'):

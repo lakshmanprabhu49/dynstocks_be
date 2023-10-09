@@ -1,10 +1,11 @@
 from flask_restful import Resource, Api, abort, request
-from mongo import mongo_DB_Collection
+from mongo import mongoDB_DynStocks_Collection
 import uuid
 from json import loads
 from bson.json_util import dumps
 import jwt
 import os
+import requests
 from src.APIs.static import checkXRequestIdHeader
 
 class Users(Resource):
@@ -15,23 +16,23 @@ class Users(Resource):
         expand = request.args.get('expand', default=None)
         if (expand is not None and expand == 'dynStocks'):
             if (not userId):
-                res = mongo_DB_Collection.find()
+                res = mongoDB_DynStocks_Collection.find()
                 if (not res):
                     abort(404, message='No users are present')
             else:
-                res = mongo_DB_Collection.find_one({
-                    'userId': uuid.UUID(userId),
+                res = mongoDB_DynStocks_Collection.find_one({
+                    'userId': userId,
                 })
                 if (not res):
                     abort(404, message='User not found')
         else: 
             if (not userId):
-                res = mongo_DB_Collection.find({}, {'dynStocks': 0, 'kotakStockAPICreds': 0})
+                res = mongoDB_DynStocks_Collection.find({}, {'dynStocks': 0, 'kotakStockAPICreds': 0})
                 if (not res):
                     abort(404, message='No users are present')
             else:
-                res = mongo_DB_Collection.find_one({
-                    'userId': uuid.UUID(userId),
+                res = mongoDB_DynStocks_Collection.find_one({
+                    'userId': userId,
                 }, {'dynStocks': 0, 'kotakStockAPICreds': 0, 'password': 0})
                 if (not res):
                     abort(404, message='User not found') 
@@ -62,16 +63,28 @@ class Users(Resource):
                 'KOTAK_STOCK_API_PASSWORD': KOTAK_STOCK_API_PASSWORD,
             },os.environ.get("KOTAK_STOCK_API_SECRET"), algorithm=os.environ.get('KOTAK_STOCK_API_ENCODE_ALGO'))
 
-            user = mongo_DB_Collection.find_one({
+            user = mongoDB_DynStocks_Collection.find_one({
                 'username': username,
             })
             if (user):
                 abort(409, message = 'User already exists')
             userId = uuid.uuid4()
+            userId = str(userId)
             encoded_password = jwt.encode({
                     'password': password
                     }, os.environ.get("DYNSTOCKS_SECRET"), algorithm=os.environ.get('DYNSTOCKS_JWT_ALGO'))
-            res = mongo_DB_Collection.insert_one({
+            try:
+                res = requests.post(request.host_url + 'realTimePrice', 
+                          json={ 'userId': loads(dumps(userId)),},
+                        headers= {
+                            'x-request-id': request.headers['x-request-id'],
+                            'content-type': request.headers['content-type']
+                        })
+            except:
+                abort(400, "Error while creating user")
+
+            if (res):
+                res = mongoDB_DynStocks_Collection.insert_one({
                 'userId': userId,
                 'username': username,
                 'password': encoded_password,
@@ -83,9 +96,11 @@ class Users(Resource):
             })
             if (not res):
                 abort(400, message = 'User creation unsuccessful')
+            
+            
         return {
                     '_id' : loads(dumps(res.inserted_id)),
-                    'userId': loads(dumps(userId)),
+                    'userId': userId,
                     'username': username,
                     'noOfDynStocksOwned': 0,
                     'noOfTransactionsMade': 0,
@@ -95,13 +110,20 @@ class Users(Resource):
 
     def delete(self, userId):
         checkXRequestIdHeader(request= request)
-        res = mongo_DB_Collection.find_one({
-            'userId': uuid.UUID(userId),
+        res = mongoDB_DynStocks_Collection.find_one({
+            'userId': userId,
         })
         if (not res):
             abort(404, message = 'User does not exist')
-        user = mongo_DB_Collection.delete_one({
-            'userId': uuid.UUID(userId),
+        try:
+            res = requests.delete(request.host_url + 'realTimePrice/'+userId, 
+                    headers= {
+                        'x-request-id': request.headers['x-request-id'],
+                    })
+        except:
+            abort(400, "Error while creating user")
+        user = mongoDB_DynStocks_Collection.delete_one({
+            'userId': userId,
         })
         if (not user):
             abort(409, message = 'Delete unsuccessful')

@@ -15,12 +15,14 @@ MONGO_CONNECTION_STRING = MONGO_CONNECTION_STRING.replace('<password>', MONGO_PA
 mongo_client = MongoClient(MONGO_CONNECTION_STRING)
 
 MONGO_DB_NAME = os.environ.get('MONGO_DB_NAME')
-MONGO_DB_COLLECTION_NAME = os.environ.get('MONGO_DB_COLLECTION_NAME')
+MONGO_DB_DYNSTOCKS_COLLECTION = os.environ.get('MONGO_DB_DYNSTOCKS_COLLECTION')
+MONGO_DB_DYNSTOCKS_REALTIME_PRICE_COLLECTION = os.environ.get('MONGO_DB_DYNSTOCKS_REALTIME_PRICE_COLLECTION')
 
 mongo_DB = mongo_client[MONGO_DB_NAME]
 try:
-    mongo_DB.create_collection(MONGO_DB_COLLECTION_NAME, {
+    mongo_DB.create_collection(MONGO_DB_DYNSTOCKS_COLLECTION, {
     })
 except: 
     pass
-mongo_DB_Collection = mongo_DB[MONGO_DB_COLLECTION_NAME]
+mongoDB_DynStocks_Collection = mongo_DB[MONGO_DB_DYNSTOCKS_COLLECTION]
+mongoDB_DynStocks_RealTime_Price_Collection = mongo_DB[MONGO_DB_DYNSTOCKS_REALTIME_PRICE_COLLECTION]

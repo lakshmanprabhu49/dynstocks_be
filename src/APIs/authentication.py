@@ -1,5 +1,5 @@
 from flask_restful import Resource, Api, abort, request
-from mongo import mongo_DB_Collection, mongo_DB
+from mongo import mongoDB_DynStocks_Collection, mongo_DB
 from pymongo import ReturnDocument
 import uuid
 from json import loads
@@ -21,7 +21,7 @@ class Authentication(Resource):
                 password = body['password'] if 'password' in body else None
                 if (username is None or password is None):
                     abort(409, message= "Please provide all the user credentials")
-                user = mongo_DB_Collection.find_one({
+                user = mongoDB_DynStocks_Collection.find_one({
                     'username': username,
                     'password': jwt.encode({
                         'password': password

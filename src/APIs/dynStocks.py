@@ -1,5 +1,5 @@
 from flask_restful import Resource, Api, abort, request
-from mongo import mongo_DB_Collection, mongo_DB
+from mongo import mongoDB_DynStocks_Collection, mongo_DB
 from pymongo import ReturnDocument
 import uuid
 from json import loads
@@ -24,8 +24,8 @@ class DynStocks(Resource):
         }, os.environ.get("DYNSTOCKS_SECRET"), algorithm=os.environ.get('DYNSTOCKS_JWT_ALGO') )
         if (len(jwt_token) != 2 or jwt_token[1] != expected_jwt_token):
             abort(403, message = 'You are unauthorized to make the request') 
-        res = mongo_DB_Collection.find_one({
-            'userId': uuid.UUID(userId)
+        res = mongoDB_DynStocks_Collection.find_one({
+            'userId': userId
         })
         if (not res):
             abort(404, message = 'User not found')
@@ -44,8 +44,8 @@ class DynStocks(Resource):
         }, os.environ.get("DYNSTOCKS_SECRET"), algorithm=os.environ.get('DYNSTOCKS_JWT_ALGO') )
         if (len(jwt_token) != 2 or jwt_token[1] != expected_jwt_token):
             abort(403, message = 'You are unauthorized to make the request') 
-        user = mongo_DB_Collection.find_one({
-            'userId': uuid.UUID(userId),
+        user = mongoDB_DynStocks_Collection.find_one({
+            'userId': userId,
         })
         if (not user):
             abort(404, message= 'User not found')
@@ -83,18 +83,20 @@ class DynStocks(Resource):
                 STPe = body['STPe']
             else:
                 abort(500, message = 'Allowed values for DSTPUnit are Price and Percentage')
-            currentDynStocks = mongo_DB_Collection.find_one({
-                'userId': uuid.UUID(userId),
+            currentDynStocks = mongoDB_DynStocks_Collection.find_one({
+                'userId': userId,
             }, {'dynStocks' : 1})['dynStocks']
             dynStocks = list(currentDynStocks)
             dynStocks_Filtered = [dynStock for dynStock in dynStocks if (dynStock['stockCode'] == stockCode)]
             if (len(dynStocks_Filtered) > 0):
                 abort(409, message= 'DynStock already created for the given stockCode')
             dynStockId = uuid.uuid4()
+            dynStockId = str(dynStockId)
             transactionId = uuid.uuid3(uuid.NAMESPACE_URL, str(transactionForCreateDynStock['transactionId'])) if transactionForCreateDynStock is not None else None
+            transactionId = str(transactionId)
             transactionTime = datetime.datetime.now(pytz.timezone('Asia/Kolkata')) if transactionForCreateDynStock is not None else None
             transactionToBeCreated = {
-                'userId': uuid.UUID(userId),
+                'userId': userId,
                 'dynStockId': dynStockId,
                 'transactionId': transactionId,
                 'transactionTime': transactionTime,
@@ -106,7 +108,7 @@ class DynStocks(Resource):
             } if transactionForCreateDynStock is not None else None
             if (BTPr):
                 dynStocks.insert(0, {
-                    'userId': uuid.UUID(userId),
+                    'userId': userId,
                     'dynStockId': dynStockId,
                     'stockCode': stockCode,
                     'yFinStockCode': yFinStockCode,
@@ -131,7 +133,7 @@ class DynStocks(Resource):
                 })
             elif (BTPe):
                 dynStocks.insert(0, {
-                    'userId': uuid.UUID(userId),
+                    'userId': userId,
                     'dynStockId': dynStockId,
                     'stockCode': stockCode,
                     'yFinStockCode': yFinStockCode,
@@ -159,8 +161,8 @@ class DynStocks(Resource):
             noOfDynStocksOwned += 1
             multiplier = 1.0 if transactionToBeCreated['type'] == 'SELL' else -1.0
             netReturns += multiplier * noOfStocks * transactionForCreateDynStock['stockPrice']/1.0
-            updatedUser = mongo_DB_Collection.find_one_and_update({
-                'userId': uuid.UUID(userId),
+            updatedUser = mongoDB_DynStocks_Collection.find_one_and_update({
+                'userId': userId,
             },{
                 '$set': {
                     'noOfTransactionsMade': noOfTransactionsMade,
@@ -218,8 +220,8 @@ class DynStocks(Resource):
         }, os.environ.get("DYNSTOCKS_SECRET"), algorithm=os.environ.get('DYNSTOCKS_JWT_ALGO') )
         if (len(jwt_token) != 2 or jwt_token[1] != expected_jwt_token):
             abort(403, message = 'You are unauthorized to make the request') 
-        res = mongo_DB_Collection.find_one({
-            'userId': uuid.UUID(userId),
+        res = mongoDB_DynStocks_Collection.find_one({
+            'userId': userId,
         })
         if (not res):
             abort(404, message= 'User not found')
@@ -251,16 +253,16 @@ class DynStocks(Resource):
                 STPe = body['STPe']
             else:
                 abort(500, message = 'Allowed values for DSTPUnit are Price and Percentage')
-            currentDynStocks = mongo_DB_Collection.find_one({
-                'userId': uuid.UUID(userId),
-                'dynStocks.dynStockId': uuid.UUID(dynStockId)
+            currentDynStocks = mongoDB_DynStocks_Collection.find_one({
+                'userId': userId,
+                'dynStocks.dynStockId': dynStockId
             }, {'dynStocks' : 1})['dynStocks']
 
 
             if (currentDynStocks is None or len(list(currentDynStocks)) == 0):
                 abort(500, message = 'DynStock does not exist')
             
-            currentDynStock = [dynStock for dynStock in list(currentDynStocks) if (dynStock['dynStockId'] == uuid.UUID(dynStockId))][0]
+            currentDynStock = [dynStock for dynStock in list(currentDynStocks) if (dynStock['dynStockId'] == dynStockId)][0]
             currentDynStock['stockCode'] = stockCode if (stockCode is not None) else currentDynStock['stockCode']
             currentDynStock['stockName'] = stockName if (stockName is not None) else currentDynStock['stockName']
             currentDynStock['yFinStockCode'] = yFinStockCode if (yFinStockCode is not None) else currentDynStock['yFinStockCode']
@@ -283,9 +285,9 @@ class DynStocks(Resource):
                 currentDynStock['BTPe'] = BTPe
                 currentDynStock['STPe'] = STPe
             
-            res = mongo_DB_Collection.find_one_and_update({
-                'userId': uuid.UUID(userId),
-                'dynStocks.dynStockId': uuid.UUID(dynStockId)
+            res = mongoDB_DynStocks_Collection.find_one_and_update({
+                'userId': userId,
+                'dynStocks.dynStockId': dynStockId
             }, {
                 '$set': {
                     'dynStocks.$': currentDynStock,
@@ -341,26 +343,26 @@ class DynStocks(Resource):
         }, os.environ.get("DYNSTOCKS_SECRET"), algorithm=os.environ.get('DYNSTOCKS_JWT_ALGO') )
         if (len(jwt_token) != 2 or jwt_token[1] != expected_jwt_token):
             abort(403, message = 'You are unauthorized to make the request') 
-        user = mongo_DB_Collection.find_one({
-            'userId': uuid.UUID(userId),
+        user = mongoDB_DynStocks_Collection.find_one({
+            'userId': userId,
         })
         if (not user):
             abort(404, message = 'User not found')
-        dynStocks = mongo_DB_Collection.find_one({
-            'userId': uuid.UUID(userId),
+        dynStocks = mongoDB_DynStocks_Collection.find_one({
+            'userId': userId,
         }, { 'dynStocks': 1})['dynStocks']
         
         netReturns = user['netReturns']
         noOfDynStocksOwned = user['noOfDynStocksOwned'] - 1
         noOfTransactionsMade = user['noOfTransactionsMade']
 
-        dynStocks_Filtered = [dynStock for dynStock in dynStocks if (dynStock['dynStockId'] == uuid.UUID(dynStockId))]
+        dynStocks_Filtered = [dynStock for dynStock in dynStocks if (dynStock['dynStockId'] == dynStockId)]
         if (len(dynStocks_Filtered) == 0):
             abort(404, message = 'DynStock does not exist')
         
-        dynStocks_Filtered = [dynStock for dynStock in dynStocks if not(dynStock['dynStockId'] == uuid.UUID(dynStockId))]
-        res = mongo_DB_Collection.find_one_and_update({
-            'userId': uuid.UUID(userId),
+        dynStocks_Filtered = [dynStock for dynStock in dynStocks if not(dynStock['dynStockId'] == dynStockId)]
+        res = mongoDB_DynStocks_Collection.find_one_and_update({
+            'userId': userId,
         }, {
             '$set': {
                 'netReturns': netReturns,

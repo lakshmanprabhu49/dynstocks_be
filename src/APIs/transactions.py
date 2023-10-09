@@ -1,6 +1,6 @@
 from flask_restful import Resource, Api, abort, request, reqparse
 from pymongo import ReturnDocument
-from mongo import mongo_DB_Collection
+from mongo import mongoDB_DynStocks_Collection
 import uuid
 from json import loads
 from bson.json_util import dumps
@@ -38,8 +38,8 @@ class Transactions(Resource):
         }, os.environ.get("DYNSTOCKS_SECRET"), algorithm=os.environ.get('DYNSTOCKS_JWT_ALGO') )
         if (len(jwt_token) != 2 or jwt_token[1] != expected_jwt_token):
             abort(403, message = 'You are unauthorized to make the request') 
-        user = mongo_DB_Collection.find_one({
-            'userId': uuid.UUID(userId),
+        user = mongoDB_DynStocks_Collection.find_one({
+            'userId': userId,
         })
         if (not user):
             abort(404, message= 'User not found')
@@ -56,15 +56,15 @@ class Transactions(Resource):
                 format = "%b %d %Y"
                 date = datetime.datetime.strptime(date_string, format)
                 next_date = date + datetime.timedelta(days=1)
-                res = mongo_DB_Collection.aggregate([{
+                res = mongoDB_DynStocks_Collection.aggregate([{
                     '$match': {
-                        'userId': uuid.UUID(userId),
+                        'userId': userId,
                     },
                 }, {
                     '$unwind': '$dynStocks',
                 }, {
                     '$match': {
-                        'dynStocks.dynStockId': uuid.UUID(dynStockId) 
+                        'dynStocks.dynStockId': dynStockId 
                     }
                 }, {
                     '$project': {
@@ -127,15 +127,15 @@ class Transactions(Resource):
                     'hasMore': hasMore, 
                     'items': transactions}, 200
             else:
-                res = mongo_DB_Collection.aggregate([{
+                res = mongoDB_DynStocks_Collection.aggregate([{
                     '$match': {
-                        'userId': uuid.UUID(userId),
+                        'userId': userId,
                     },
                 }, {
                     '$unwind': '$dynStocks',
                 }, {
                     '$match': {
-                        'dynStocks.dynStockId': uuid.UUID(dynStockId) 
+                        'dynStocks.dynStockId': dynStockId 
                     }
                 }, {
                     '$project': {
@@ -192,9 +192,9 @@ class Transactions(Resource):
                 format = "%b %d %Y"
                 date = datetime.datetime.strptime(date_string, format)
                 next_date = date + datetime.timedelta(days=1)
-                res = mongo_DB_Collection.aggregate([{
+                res = mongoDB_DynStocks_Collection.aggregate([{
                     '$match': {
-                        'userId': uuid.UUID(userId),
+                        'userId': userId,
                     },
                 }, {
                     '$unwind': '$dynStocks',
@@ -266,14 +266,14 @@ class Transactions(Resource):
                     'hasMore': hasMore,
                     'items':transactions}, 200
 
-            res = mongo_DB_Collection.find_one({
-                'userId': uuid.UUID(userId),
+            res = mongoDB_DynStocks_Collection.find_one({
+                'userId': userId,
             })
             if (not res):
                 abort(404, message='User not found')
-            res = mongo_DB_Collection.aggregate([{
+            res = mongoDB_DynStocks_Collection.aggregate([{
                 '$match': {
-                    'userId': uuid.UUID(userId),
+                    'userId': userId,
                 },
             }, {
                 '$project': {
@@ -348,8 +348,8 @@ class Transactions(Resource):
         }, os.environ.get("DYNSTOCKS_SECRET"), algorithm=os.environ.get('DYNSTOCKS_JWT_ALGO') )
         if (len(jwt_token) != 2 or jwt_token[1] != expected_jwt_token):
             abort(403, message = 'You are unauthorized to make the request') 
-        user = mongo_DB_Collection.find_one({
-            'userId': uuid.UUID(userId),
+        user = mongoDB_DynStocks_Collection.find_one({
+            'userId': userId,
         })
         if (not user):
             abort(404, message= 'User not found')
@@ -369,28 +369,29 @@ class Transactions(Resource):
             multiplier = 1.0 if type == 'SELL' else -1.0
             netReturns += multiplier * noOfStocks * stockPrice/1.0
             
-            currentDynStocks = mongo_DB_Collection.find_one({
-                'userId': uuid.UUID(userId),
-                'dynStocks.dynStockId': uuid.UUID(dynStockId),
+            currentDynStocks = mongoDB_DynStocks_Collection.find_one({
+                'userId': userId,
+                'dynStocks.dynStockId': dynStockId,
             }, {'dynStocks' : 1})['dynStocks']
 
             index = -1
             for i in range(len(currentDynStocks)):
-                if (currentDynStocks[i]['dynStockId'] == uuid.UUID(dynStockId)):
+                if (currentDynStocks[i]['dynStockId'] == dynStockId):
                     index = i
                     break
             currentStocksAvailableForTrade = currentDynStocks[index]['stocksAvailableForTrade']
-            currentTransactions = mongo_DB_Collection.find_one({
-                'userId': uuid.UUID(userId),
-                'dynStocks.dynStockId': uuid.UUID(dynStockId),
+            currentTransactions = mongoDB_DynStocks_Collection.find_one({
+                'userId': userId,
+                'dynStocks.dynStockId': dynStockId,
             }, {'dynStocks' : 1})['dynStocks'][index]['transactions']
 
             transactionId = uuid.uuid3(uuid.NAMESPACE_URL, str(transactionId))
+            transactionId = str(transactionId)
             transactions = list(currentTransactions)
             transactionTime = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
             transactions.append({
-                'userId': uuid.UUID(userId),
-                'dynStockId': uuid.UUID(dynStockId),
+                'userId': userId,
+                'dynStockId': dynStockId,
                 'transactionId': transactionId,
                 'transactionTime': transactionTime,
                 'type': type,
@@ -400,9 +401,9 @@ class Transactions(Resource):
                 'amount': (noOfStocks * stockPrice) / 1.0
             })
 
-            updatedUser = mongo_DB_Collection.find_one_and_update({
-                'userId': uuid.UUID(userId),
-                'dynStocks.dynStockId': uuid.UUID(dynStockId),
+            updatedUser = mongoDB_DynStocks_Collection.find_one_and_update({
+                'userId': userId,
+                'dynStocks.dynStockId': dynStockId,
             },{
                 '$set': {
                     'netReturns': netReturns,
@@ -417,7 +418,7 @@ class Transactions(Resource):
             
             return {
                     'userId': loads(dumps(updatedUser['userId'])),
-                    'dynStockId': loads(dumps(uuid.UUID(dynStockId))),
+                    'dynStockId': loads(dumps(dynStockId)),
                     'transactionId': loads(dumps(transactionId)),
                     'transactionTime': loads(dumps(transactionTime)),
                     'type': type,

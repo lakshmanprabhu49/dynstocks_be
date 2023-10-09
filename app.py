@@ -12,6 +12,7 @@ from src.APIs.users import Users
 from src.APIs.dynStocks import DynStocks
 from src.APIs.dynStocksNetReturns import DynStocksNetReturns
 from src.APIs.transactions import Transactions
+from src.APIs.dynStocksRealTimePrice import DynStocksRealTimePrice
 from src.APIs.kotakStock import KotakStock
 import os
 import datetime
@@ -34,6 +35,7 @@ flask_api.add_resource(DynStocks ,'/<string:userId>/dynStocks', '/<string:userId
 flask_api.add_resource(Transactions ,'/<string:userId>/transactions', '/<string:userId>/dynStocks/<string:dynStockId>/transactions')
 flask_api.add_resource(KotakStock ,'/<string:userId>/kotakStock/<string:type>', '/<string:userId>/kotakStock/<string:type>/<string:typeValue>')
 flask_api.add_resource(DynStocksNetReturns ,'/<string:userId>/dynStocks/<string:dynStockId>/netReturns')
+flask_api.add_resource(DynStocksRealTimePrice ,'/realTimePrice','/realTimePrice/<string:userId>' , '/realTimePrice/<string:userId>/<string:stockCode>')
 
 if (str(datetime.datetime.now(pytz.timezone('Asia/Kolkata')).day) != os.environ.get("lastDay")):
     temp_file = open('temp.txt')
@@ -46,4 +48,4 @@ if (str(datetime.datetime.now(pytz.timezone('Asia/Kolkata')).day) != os.environ.
                 os.environ[name] = ""
 
 if __name__ == '__main__':
-    flask_app.run(debug=True, port=int(os.environ.get("PORT", 5000)))
+    flask_app.run(debug=True, port=int(os.environ.get("PORT", 5000)), use_reloader=True)
