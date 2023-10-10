@@ -35,7 +35,7 @@ flask_api.add_resource(DynStocks ,'/<string:userId>/dynStocks', '/<string:userId
 flask_api.add_resource(Transactions ,'/<string:userId>/transactions', '/<string:userId>/dynStocks/<string:dynStockId>/transactions')
 flask_api.add_resource(KotakStock ,'/<string:userId>/kotakStock/<string:type>', '/<string:userId>/kotakStock/<string:type>/<string:typeValue>')
 flask_api.add_resource(DynStocksNetReturns ,'/<string:userId>/dynStocks/<string:dynStockId>/netReturns')
-flask_api.add_resource(DynStocksRealTimePrice ,'/realTimePrice','/realTimePrice/<string:userId>')
+flask_api.add_resource(DynStocksRealTimePrice ,'/realTimePrice','/realTimePrice/<string:userId>', '/realTimePrice/<string:userId>/<string:stockCode>')
 
 if (str(datetime.datetime.now(pytz.timezone('Asia/Kolkata')).day) != os.environ.get("lastDay")):
     temp_file = open('temp.txt')
