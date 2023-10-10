@@ -104,7 +104,7 @@ class DynStocksRealTimePrice(Resource):
             }, 200
 
     def put(self, userId):
-        # PUT localMaxima and localMimima
+        # PUT localMaxima and localMimima, only for stockCodes where prices got updated 
         checkXRequestIdHeader(request= request)
         if ('Authorization' not in request.headers):
             abort(403, message = 'You are unauthorized to make the request') 
@@ -178,6 +178,7 @@ class DynStocksRealTimePrice(Resource):
         return '', 204
     
     def delete(self, userId, stockCode):
+        # Delete stock Code real time price subscription
         checkXRequestIdHeader(request= request)
         if ('Authorization' not in request.headers):
             abort(403, message = 'You are unauthorized to make the request') 

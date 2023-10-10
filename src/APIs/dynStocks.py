@@ -8,6 +8,7 @@ import datetime
 import pytz
 import jwt
 import os
+import requests
 from src.APIs.static import checkXRequestIdHeader
 
 class DynStocks(Resource):
@@ -54,7 +55,6 @@ class DynStocks(Resource):
         if ('application/json' in content_type):
             body = request.get_json()
             stockCode = body['stockCode']
-            yFinStockCode = body['yFinStockCode']
             instrumentToken = body['instrumentToken']
             stockName = body['stockName']
             DSTPUnit = body['DSTPUnit']
@@ -111,7 +111,6 @@ class DynStocks(Resource):
                     'userId': userId,
                     'dynStockId': dynStockId,
                     'stockCode': stockCode,
-                    'yFinStockCode': yFinStockCode,
                     'instrumentToken': instrumentToken,
                     'lastTradedPrice': transactionForCreateDynStock['stockPrice'] / 1.0,
                     'lastTransactionType': 'BUY',
@@ -136,7 +135,6 @@ class DynStocks(Resource):
                     'userId': userId,
                     'dynStockId': dynStockId,
                     'stockCode': stockCode,
-                    'yFinStockCode': yFinStockCode,
                     'instrumentToken': instrumentToken,
                     'lastTradedPrice': transactionForCreateDynStock['stockPrice'] / 1.0,
                     'lastTransactionType': 'BUY',
@@ -161,6 +159,19 @@ class DynStocks(Resource):
             noOfDynStocksOwned += 1
             multiplier = 1.0 if transactionToBeCreated['type'] == 'SELL' else -1.0
             netReturns += multiplier * noOfStocks * transactionForCreateDynStock['stockPrice']/1.0
+            # Create entry in real time price DB
+            realTimePriceDBRes = requests.post(request.host_url + 'realTimePrice/'+userId, 
+                headers= {
+                    'x-request-id': request.headers['x-request-id'],
+                    'Authorization': request.headers['Authorization'],
+                    'content-type': request.headers['content-type']
+                }, json={
+                    'stockCode': stockCode,
+                    'currentLocalMaximumPrice': transactionForCreateDynStock['stockPrice'] / 1.0,
+                    'currentLocalMinimumPrice': transactionForCreateDynStock['stockPrice'] / 1.0
+                }, params={
+                    'accessCode': request.args['accessCode']
+                })
             updatedUser = mongoDB_DynStocks_Collection.find_one_and_update({
                 'userId': userId,
             },{
@@ -176,7 +187,6 @@ class DynStocks(Resource):
                 'userId': loads(dumps(updatedUser['userId'])),
                 'dynStockId': loads(dumps(dynStockId)),
                 'stockCode': stockCode,
-                'yFinStockCode': yFinStockCode,
                 'instrumentToken': instrumentToken,
                 'lastTradedPrice': transactionForCreateDynStock['stockPrice'] / 1.0,
                 'lastTransactionType': 'BUY',
@@ -229,7 +239,6 @@ class DynStocks(Resource):
         if ('application/json' in content_type):
             body = request.get_json()
             stockCode = body['stockCode']
-            yFinStockCode = body['yFinStockCode'] if ('yFinStockCode' in body) else None
             instrumentToken = body['instrumentToken'] if ('instrumentToken' in body) else None
             stockName = body['stockName'] if ('stockName' in body) else None
             noOfStocks = body['noOfStocks'] if ('noOfStocks' in body) else None
@@ -265,7 +274,6 @@ class DynStocks(Resource):
             currentDynStock = [dynStock for dynStock in list(currentDynStocks) if (dynStock['dynStockId'] == dynStockId)][0]
             currentDynStock['stockCode'] = stockCode if (stockCode is not None) else currentDynStock['stockCode']
             currentDynStock['stockName'] = stockName if (stockName is not None) else currentDynStock['stockName']
-            currentDynStock['yFinStockCode'] = yFinStockCode if (yFinStockCode is not None) else currentDynStock['yFinStockCode']
             currentDynStock['instrumentToken'] = instrumentToken if (instrumentToken is not None) else currentDynStock['instrumentToken']
             currentDynStock['noOfStocks'] = noOfStocks if (noOfStocks is not None) else currentDynStock['noOfStocks']
             currentDynStock['stallTransactions'] = stallTransactions
@@ -298,7 +306,6 @@ class DynStocks(Resource):
             'userId': loads(dumps(currentDynStock['userId'])),
             'dynStockId': loads(dumps(currentDynStock['dynStockId'])),
             'stockCode': currentDynStock['stockCode'],
-            'yFinStockCode': currentDynStock['yFinStockCode'],
             'instrumentToken': currentDynStock['instrumentToken'],
             'lastTradedPrice': currentDynStock['lastTradedPrice'],
             'lastTransactionType': currentDynStock['lastTransactionType'],
@@ -356,11 +363,26 @@ class DynStocks(Resource):
         noOfDynStocksOwned = user['noOfDynStocksOwned'] - 1
         noOfTransactionsMade = user['noOfTransactionsMade']
 
-        dynStocks_Filtered = [dynStock for dynStock in dynStocks if (dynStock['dynStockId'] == dynStockId)]
-        if (len(dynStocks_Filtered) == 0):
+        dynStocks_Filtered = []
+        deletedStockCode = None
+        for dynStock in dynStocks:
+            if (dynStock['dynStockId'] == dynStockId):
+                deletedStockCode = dynStock['stockCode']
+            else:
+                dynStocks_Filtered.append(dynStock)
+
+        if (deletedStockCode is None):
             abort(404, message = 'DynStock does not exist')
         
-        dynStocks_Filtered = [dynStock for dynStock in dynStocks if not(dynStock['dynStockId'] == dynStockId)]
+        # Delete stockCode from real time price DB
+        realTimePriceDBRes = requests.delete(request.host_url + 'realTimePrice/'+userId+'/'+deletedStockCode, 
+            headers= {
+                'x-request-id': request.headers['x-request-id'],
+                'Authorization': request.headers['Authorization'],
+            }, params={
+                    'accessCode': request.args['accessCode']
+            })
+
         res = mongoDB_DynStocks_Collection.find_one_and_update({
             'userId': userId,
         }, {
